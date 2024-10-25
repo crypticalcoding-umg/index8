@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Área Bajo la Curva</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #000000; 
+            color: #ffc400; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 20px; 
+        }
+        .calculator { 
+            border: 1px solid #ccc; 
+            padding: 20px; 
+            border-radius: 10px; 
+            width: 100%; 
+            max-width: 800px; 
+            background: #fff; 
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); 
+        }
+        .input-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .calculator input, .calculator button { 
+            width: 100%; 
+            padding: 10px; 
+            margin: 5px 0; 
+            border-radius: 5px; 
+            border: 1px solid #ccc; 
+            font-size: 1em; 
+            box-sizing: border-box;
+        }
+        .calculator button {
+            background-color: #c09300;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            grid-column: span 3;
+        }
+        .calculator button:hover {
+            background-color: #ff9900;
+        }
+        .result { 
+            font-weight: bold; 
+            color: #ffbb00; 
+            margin-top: 10px; 
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            text-align: center;
+        }
+        .graph-container {
+            margin-top: 20px;
+            width: 100%;
+            height: 400px;
+        }
+        .example {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e2e8f0;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 800px;
+        }
+        .error {
+            color: #dc2626;
+            background-color: #fee2e2;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Calculadora de Área Bajo la Curva</h1>
+    <div class="calculator">
+        <div class="input-section">
+            <div>
+                <label for="function">Función f(x):</label>
+                <input type="text" id="function" placeholder="Ej. x^2">
+            </div>
+            <div>
+                <label for="lower">Límite inferior (a):</label>
+                <input type="number" id="lower" value="0" step="0.1">
+            </div>
+            <div>
+                <label for="upper">Límite superior (b):</label>
+                <input type="number" id="upper" value="1" step="0.1">
+            </div>
+            <button onclick="calculate()">Calcular Área</button>
+        </div>
+        <div class="result" id="result-output"></div>
+        <div class="graph-container">
+            <canvas id="graph"></canvas>
+        </div>
+    </div>
+    <div class="example">
+        <h3>Ejemplos de funciones:</h3>
+        <p>1. x^2 (parábola)</p>
+        <p>2. sin(x) (función seno)</p>
+        <p>3. x^3 - 2*x + 1 (función cúbica)</p>
+        <p>4. exp(x) (función exponencial)</p>
+    </div>
+
+    <script>
+        let chart = null;
+
+        function createGraph(func, lower, upper, area) {
+            const ctx = document.getElementById('graph').getContext('2d');
+            
+            // Si ya existe un gráfico, destruirlo
+            if (chart) {
+                chart.destroy();
+            }
+
+            // Generar puntos para la gráfica
+            const points = 200;
+            const step = (upper - lower) / points;
+            const data = [];
+            const areaData = [];
+            const labels = [];
+
+            // Expandir un poco los límites para mejor visualización
+            const margin = (upper - lower) * 0.2;
+            const graphLower = lower - margin;
+            const graphUpper = upper + margin;
+
+            try {
+                const f = math.compile(func);
+                
+                for (let x = graphLower; x <= graphUpper; x += step) {
+                    const y = f.evaluate({x: x});
+                    labels.push(x.toFixed(2));
+                    data.push(y);
+
+                    // Datos para el área sombreada
+                    if (x >= lower && x <= upper) {
+                        areaData.push(y);
+                    } else {
+                        areaData.push(0);
+                    }
+                }
+
+                chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'f(x)',
+                            data: data,
+                            borderColor: '#2b6cb0',
+                            borderWidth: 2,
+                            fill: false
+                        }, {
+                            label: 'Área',
+                            data: areaData,
+                            backgroundColor: 'rgba(43, 108, 176, 0.2)',
+                            borderWidth: 0,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Área bajo la curva: ${area.toFixed(4)}`
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error al crear la gráfica:", error);
+            }
+        }
+
+        function calculate() {
+            const func = document.getElementById("function").value;
+            const lower = parseFloat(document.getElementById("lower").value);
+            const upper = parseFloat(document.getElementById("upper").value);
+
+            try {
+                // Validaciones
+                if (!func) throw new Error("Por favor ingrese una función.");
+                if (isNaN(lower)) throw new Error("Límite inferior no válido.");
+                if (isNaN(upper)) throw new Error("Límite superior no válido.");
+                if (upper <= lower) throw new Error("El límite superior debe ser mayor al límite inferior.");
+
+                // Calcular la integral usando el método del trapecio
+                const n = 1000; // número de subdivisiones
+                const dx = (upper - lower) / n;
+                let sum = 0;
+                const f = math.compile(func);
+                
+                for (let i = 0; i <= n; i++) {
+                    const x = lower + i * dx;
+                    const factor = (i === 0 || i === n) ? 0.5 : 1;
+                    sum += factor * f.evaluate({x: x});
+                }
+                
+                const area = sum * dx;
+                
+                document.getElementById("result-output").innerHTML = 
+                    `El área bajo la curva es: ${area.toFixed(4)} unidades cuadradas`;
+                document.getElementById("result-output").classList.remove("error");
+
+                // Crear la gráfica
+                createGraph(func, lower, upper, area);
+            } catch (error) {
+                document.getElementById("result-output").innerHTML = 
+                    `Error: ${error.message}`;
+                document.getElementById("result-output").classList.add("error");
+            }
+        }
+
+        // Calcular al presionar Enter
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                calculate();
+            }
+        });
+
+        // Calcular inicialmente con valores por defecto
+        window.onload = calculate;
+    </script>
+</body>
+</html>
